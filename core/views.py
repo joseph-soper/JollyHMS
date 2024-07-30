@@ -4,6 +4,7 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from datetime import date
+from decimal import Decimal
 from .models import Booking, Guest, Invoice, Room
 from .serializers import BookingSerializer, GuestSerializer, \
     InvoiceSerializer, RoomSerializer
@@ -96,3 +97,11 @@ class BookingViewSet(viewsets.ModelViewSet):
 class InvoiceViewSet(viewsets.ModelViewSet):
     queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
+
+def create_invoice(booking):
+    total_price = booking.total_price
+    Invoice.objects.create(
+        booking=booking,
+        amount=total_price,
+        payment_method=booking.payment_method, # Add payment method
+    )

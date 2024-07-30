@@ -1,6 +1,8 @@
+##### Guests Tests ####################################
+### Simple GET Request
 GET http://127.0.0.1:8000/api/guests/
 
-###
+### POST to /api/guests/
 POST http://127.0.0.1:8000/api/guests/
 Content-Type: application/json
 
@@ -9,4 +11,31 @@ Content-Type: application/json
     "last_name": "Smith",
     "email": "janesmith@example.com",
     "phone_number": "987-654-3210"
+}
+
+##### Bookings Tests ##################################
+### POST to /api/bookings/
+POST http://127.0.0.1:8000/api/bookings/
+Content-Type: application/json
+
+{
+    "guest": "1",
+    "room": "1",
+    "check_in_date": "2024-08-15",
+    "check_out_date": "2024-08-20",
+    "payment_method": "credit_card"
+}
+
+##### Rooms Tests ######################################
+### GET to /api/rooms/
+GET http://127.0.0.1:8000/api/rooms/
+
+### POST to /api/rooms/
+POST http://127.0.0.1:8000/api/rooms/
+Content-Type: application/json
+
+{
+    "number": "101",
+    "room_type": "Q",
+    "price": 99.99 
 }

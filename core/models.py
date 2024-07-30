@@ -35,6 +35,10 @@ class Booking(models.Model):
     check_out_date = models.DateField()
     total_price = models.DecimalField(max_digits=10, decimal_places=2)
     is_active = models.BooleanField(default=True)
+    payment_method = models.CharField(max_length=20, choices=(
+        ('credit_card', 'Credit Card'),
+        ('cash', 'Cash'),
+    ), null=True, blank=True)
 
     def __str__(self):
         return f"Booking for {self.guest.first_name} in Room {self.room.number}"
