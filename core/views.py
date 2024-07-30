@@ -1,11 +1,13 @@
 from collections import Counter
 from datetime import date, datetime, timedelta
 from decimal import Decimal
+from django.conf import settings
 from django.db.models import Count, Q
 from django.shortcuts import render
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
+import stripe
 from .models import Booking, Guest, Invoice, Room
 from .serializers import BookingSerializer, GuestSerializer, \
     InvoiceSerializer, RoomSerializer
@@ -207,3 +209,24 @@ def search_available_rooms(request):
     serializer = RoomSerializer(available_rooms, many=True)
     return Response(serializer.data)
 
+##### Stripe ############################################################################
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
+##### Create Payment Intent  ############################################################
+@api_view(['POST'])
+def create_payment_intent(request):
+    try:
+        amount = int(request.data['amount'])
+
+        payment_intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency='usd',
+            automatic_payment_methods={
+                'enabled': True,
+            },
+        )
+
+        return Response({'clientSecret': payment_intent['client_secret']})
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
