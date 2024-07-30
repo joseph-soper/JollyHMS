@@ -37,7 +37,7 @@ class BookingViewSet(viewsets.ModelViewSet):
             return Response({"error": "Check-out date must be after check-in date."}, status=status.HTTP_400_BAD_REQUEST)
         if check_in_date < date.today():
             return Response({"error": "Check-in date cannot be in the past."}, status=status.HTTP_400_BAD_REQUEST)
-
+        
         # Overlapping bookings check (Revised Logic)
         overlapping_bookings = Booking.objects.filter(
             room=room,
