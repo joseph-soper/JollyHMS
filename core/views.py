@@ -2,20 +2,29 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from django.conf import settings
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.db.models import Count, Q
 from django.shortcuts import render
 from .permissions import IsGuest, IsStaff, IsAdmin, IsManager
 from rest_framework import status, generics, permissions, viewsets
-from rest_framework.decorators import action, api_view
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
 import stripe
 from .models import Booking, Guest, Invoice, Room, UserRole, UserProfile
 from .serializers import BookingSerializer, GuestSerializer, \
     InvoiceSerializer, RoomSerializer, UserSerializer
 
 # Create your views here.
+###############################################################################################################
+###############################################################################################################
+######################################## Class Based Views #################################################
+###############################################################################################################
+###############################################################################################################
+
 class GuestViewSet(viewsets.ModelViewSet):
     queryset = Guest.objects.all()
     serializer_class = GuestSerializer
@@ -110,6 +119,38 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
 
+    permission_classes = [IsGuest]
+
+# Registration View Function
+class RegisterView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    permission_classes = (permissions.AllowAny,)
+    serializer_class = UserSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            user = serializer.save()
+            role = UserRole.objects.get(name='Guest')
+            UserProfile.objects.create(user=user, role=role)
+
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+            }, status=status.HTTP_201_CREATED)
+        
+        except IntegrityError as e: # Catch potential integrity errors (e.g. duplicate usernames)
+            return Response({'error': 'Username or email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+
+###############################################################################################################
+###############################################################################################################
+######################################## Function Based Views #################################################
+###############################################################################################################
+###############################################################################################################
+
 # Create Invoice Function
 def create_invoice(booking):
     total_price = booking.total_price
@@ -147,6 +188,7 @@ def calculate_revenue(request):
 
 # Guest Demographics Report Function
 @api_view(['GET'])
+@permission_classes([IsStaff])
 def guest_demographics_report(request):
     # Get all guests
     guests = Guest.objects.all()
@@ -162,8 +204,27 @@ def guest_demographics_report(request):
         'ages': ages
     })
 
+# Login View Function
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def login_view(request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+
+    # Check user credentials against built in user model
+    user = authenticate(request, username=username, password=password)
+    if user is not None:
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        })
+    else:
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
 # Occupancy Rate Report Function
 @api_view(['GET'])
+@permission_classes([IsStaff])
 def occupancy_rate_report(request):
     date_str = request.query_params.get('date')
 
@@ -221,7 +282,7 @@ def search_available_rooms(request):
 ##### Stripe ############################################################################
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
-##### Create Payment Intent  ############################################################
+##### Create Payment Intent  #####
 @api_view(['POST'])
 def create_payment_intent(request):
     try:
