@@ -39,3 +39,12 @@ Content-Type: application/json
     "room_type": "Q",
     "price": 99.99 
 }
+
+### Authentication & Permissions Tests #################
+POST http://127.0.0.1:8000/api/token/
+Content-Type: application/json
+
+{
+    "username": "testadmin",
+    "password": "LordCast1el*"
+}

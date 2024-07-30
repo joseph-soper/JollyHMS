@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 # Create your models here.
 class Guest(models.Model):
@@ -8,7 +9,7 @@ class Guest(models.Model):
     phone_number = models.CharField(max_length=15)
     address = models.TextField(blank=True) # Allow blank addresses
     date_of_birth=models.DateField()
-    
+
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
@@ -55,3 +56,16 @@ class Invoice(models.Model):
 
     def __str__(self):
         return f"Invoice for Booking {self.booking.id}"
+
+class UserRole(models.Model):
+    name = models.CharField(max_length=20, unique=True)
+
+    def __str__(self):
+        return self.name
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    role = models.ForeignKey(UserRole, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.role}"

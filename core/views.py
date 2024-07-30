@@ -2,28 +2,37 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from django.conf import settings
+from django.contrib.auth.models import User
 from django.db.models import Count, Q
 from django.shortcuts import render
-from rest_framework import status, viewsets
+from .permissions import IsGuest, IsStaff, IsAdmin, IsManager
+from rest_framework import status, generics, permissions, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
 import stripe
-from .models import Booking, Guest, Invoice, Room
+from .models import Booking, Guest, Invoice, Room, UserRole, UserProfile
 from .serializers import BookingSerializer, GuestSerializer, \
-    InvoiceSerializer, RoomSerializer
+    InvoiceSerializer, RoomSerializer, UserSerializer
 
 # Create your views here.
 class GuestViewSet(viewsets.ModelViewSet):
     queryset = Guest.objects.all()
     serializer_class = GuestSerializer
 
+    permission_classes = [IsGuest]
+
 class RoomViewSet(viewsets.ModelViewSet):
     queryset = Room.objects.all()
     serializer_class = RoomSerializer
 
+    permission_classes = [IsStaff]
+
 class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
+
+    permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -229,4 +238,16 @@ def create_payment_intent(request):
         return Response({'clientSecret': payment_intent['client_secret']})
     except Exception as e:
         return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-    
+
+##### Create User #######################################################################
+class UserCreate(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+
+        # Create a UserProfile for the new user and assign the default role 'Guest'
+        role = UserRole.objects.get(name='Guest')
+        UserProfile.objects.create(user=user, role=role)
