@@ -7,7 +7,8 @@ class Guest(models.Model):
     email = models.EmailField(unique=True)
     phone_number = models.CharField(max_length=15)
     address = models.TextField(blank=True) # Allow blank addresses
-
+    date_of_birth=models.DateField()
+    
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 

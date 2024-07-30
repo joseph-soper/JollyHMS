@@ -1,10 +1,11 @@
+from collections import Counter
+from datetime import date, datetime, timedelta
+from decimal import Decimal
+from django.db.models import Count, Q
 from django.shortcuts import render
-from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
-from datetime import date, datetime, timedelta
-from decimal import Decimal
 from .models import Booking, Guest, Invoice, Room
 from .serializers import BookingSerializer, GuestSerializer, \
     InvoiceSerializer, RoomSerializer
@@ -98,6 +99,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     queryset = Invoice.objects.all()
     serializer_class = InvoiceSerializer
 
+# Create Invoice Function
 def create_invoice(booking):
     total_price = booking.total_price
     Invoice.objects.create(
@@ -106,6 +108,75 @@ def create_invoice(booking):
         payment_method=booking.payment_method, # Add payment method
     )
 
+# Calculate Revenue Function
+@api_view(['GET'])
+def calculate_revenue(request):
+    # Get start and end dates from query parameters
+    start_date_str = request.query_params.get('start_date')
+    end_date_str = request.query_params.get('end_date')
+
+    # Validate dates
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return Response({'error': 'Invalid date format. Please use YYYY-MM-DD format.'}, 
+                        status=status.HTTP_400_BAD_REQUEST )
+    
+    # Calculate revenue
+    bookings = Booking.objects.filter(
+        check_in_date__lte=end_date,
+        check_out_date__gte=start_date,
+        invoice__is_paid=True, # Ensure only paid bookings are included
+    )
+
+    total_revenue = sum(booking.total_price for booking in bookings)
+
+    return Response({'total_revenue': total_revenue})
+
+# Guest Demographics Report Function
+@api_view(['GET'])
+def guest_demographics_report(request):
+    # Get all guests
+    guests = Guest.objects.all()
+
+    # Calculate demographics
+    countries = Counter(guest.address.split(',')[-1].strip() for guest in guests
+                        if guest.address) # Extract country from address (assume last part of address is country)
+    ages = Counter((date.today().year - guest.date_of_birth.year) for guest in guests 
+                   if guest.date_of_birth) #Assuming you have date_of_birth field
+    
+    return Response({
+        'countries': countries,
+        'ages': ages
+    })
+
+# Occupancy Rate Report Function
+@api_view(['GET'])
+def occupancy_rate_report(request):
+    date_str = request.query_params.get('date')
+
+    # Validate date
+    try:
+        report_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    # Get total rooms and occupied rooms for the given date
+    total_rooms = Room.objects.count()
+    occupied_rooms = Booking.objects.filter(
+        check_in_date__lte=report_date,
+        check_out_date__gt=report_date,
+        is_active=True
+    ).count()
+
+    # Calculate occupancy rate
+    occupancy_rate = (occupied_rooms / total_rooms) * 100 if total_rooms > 0 else 0
+
+    return Response({'date': report_date, 'occupancy_rate': occupancy_rate})
+
+# Search Available Rooms Function
 @api_view(['GET'])
 def search_available_rooms(request):
     check_in_date = request.query_params.get('check_in_date')
@@ -136,27 +207,3 @@ def search_available_rooms(request):
     serializer = RoomSerializer(available_rooms, many=True)
     return Response(serializer.data)
 
-@api_view(['GET'])
-def calculate_revenue(request):
-    # Get start and end dates from query parameters
-    start_date_str = request.query_params.get('start_date')
-    end_date_str = request.query_params.get('end_date')
-
-    # Validate dates
-    try:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return Response({'error': 'Invalid date format. Please use YYYY-MM-DD format.'}, 
-                        status=status.HTTP_400_BAD_REQUEST )
-    
-    # Calculate revenue
-    bookings = Booking.objects.filter(
-        check_in_date__lte=end_date,
-        check_out_date__gte=start_date,
-        invoice__is_paid=True, # Ensure only paid bookings are included
-    )
-
-    total_revenue = sum(booking.total_price for booking in bookings)
-
-    return Response({'total_revenue': total_revenue})
