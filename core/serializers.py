@@ -29,6 +29,26 @@ class GuestSerializer(serializers.ModelSerializer):
         model = Guest
         fields = '__all__'
 
+    def validate_date_of_birth(self, value):
+        # Check if date_of_birth is in the future
+        if value > timezone.now().date():
+            raise serializers.ValidationError("Date of birth cannot be in the future.")
+        
+        # Check minimum age
+        min_age = 18
+        today = timezone.now().date()
+        if today.year - value.year - ((today.month, today.day) < (value.month, value.day)) < min_age:
+            raise serializers.ValidationError(f"Guest must be at least {min_age} years old.")
+        
+        return value
+    
+    def validate_email(self, value):
+        # Check for valid email format 
+        if not "@" in value:
+            raise serializers.ValidationError("Invalid email address.")
+        
+        return value
+
 class InvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
