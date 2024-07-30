@@ -13,19 +13,24 @@ class BookingAdmin(admin.ModelAdmin):
     list_display = ('guest', 'room', 'check_in_date', 'check_out_date', 'total_price', 'is_active', 'payment_method')
     search_fields = ('guest__first_name', 'guest__last_name', 'room__number')
     list_filter = ('check_in_date', 'check_out_date', 'is_active')
-    
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.userprofile.role.name =='Staff':
+            return qs.filter(guest__user=request.user) # Filter bookings for the staff member
+        return qs
 
     def has_view_or_change_permission(self, request, obj=None):
-        # Allow all staff members to view bookings
-        return request.user.is_staff
+        # Allow all staff members to view bookings, but only if they are logged in
+        return request.user.is_authenticated and request.user.is_staff
     
     def has_add_permission(self, request):
-        # Allow only managers and admins to add bookings
-        return request.user.userprofile.role.name in ['Manager', 'Admin']
+        # Allow only managers and admins to add bookings, but only if they are logged in
+        return request.user.is_authenticated and request.user.userprofile.role.name in ['Manager', 'Admin']
     
     def has_delete_permission(self, request, obj=None):
-        # Allow only admins to delete bookings
-        return request.user.userprofile.role.name == 'Admin'
+        # Allow only admins to delete bookings, but only if they are logged in
+        return request.user.is_authenticated and request.user.userprofile.role.name == ['Admin']
 
 # Register your models here.
 admin.site.register(Booking, BookingAdmin)

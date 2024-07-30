@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 
 # Create your models here.
 class Guest(models.Model):
@@ -59,7 +59,8 @@ class Invoice(models.Model):
 
 class UserRole(models.Model):
     name = models.CharField(max_length=20, unique=True)
-
+    permissions = models.ManyToManyField(Permission, blank=True)
+    
     def __str__(self):
         return self.name
 
