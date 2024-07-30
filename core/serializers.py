@@ -4,7 +4,8 @@ from .models import Booking, Guest, Invoice, Room
 class BookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Booking
-        fields = '__all__'
+        
+        exclude = ['total_price'] # Exclude total_price for now
 
 class GuestSerializer(serializers.ModelSerializer):
     class Meta:
