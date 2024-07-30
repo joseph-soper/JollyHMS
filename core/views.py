@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.db.models import Q
 from rest_framework import status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
 from datetime import date
 from decimal import Decimal
@@ -105,3 +105,33 @@ def create_invoice(booking):
         amount=total_price,
         payment_method=booking.payment_method, # Add payment method
     )
+
+@api_view(['GET'])
+def search_available_rooms(request):
+    check_in_date = request.query_params.get('check_in_date')
+    check_out_date = request.query_params.get('check_out_date')
+    room_type = request.query_params.get('room_type')
+
+    # Basic validation
+    if not check_in_date or not check_out_date:
+        return Response({"error": "Please provide check-in and check-out dates."}, 
+                        status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        check_in_date = date.fromisoformat(check_in_date)
+        check_out_date = date.fromisoformat(check_out_date)
+    except ValueError:
+        return Response({"error": "Invalid date format. Please use YYYY-MM-DD format."}, 
+                        status=status.HTTP_400_BAD_REQUEST)
+    
+    # Query for available rooms
+    available_rooms = Room.objects.filter(is_available=True).exclude(
+        bookings__check_in_date__lte=check_out_date, 
+        bookings__check_out_date__gte=check_in_date
+    )
+
+    if room_type:
+        available_rooms = available_rooms.filter(room_type=room_type)
+
+    serializer = RoomSerializer(available_rooms, many=True)
+    return Response(serializer.data)
