@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.db.models import Q
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from datetime import date
 from .models import Booking, Guest, Invoice, Room
@@ -57,6 +58,40 @@ class BookingViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=True, methods=['POST'])
+    def check_in(self, request, pk=None):
+        booking = self.get_object()
+
+        if not booking.is_active:  # Check if booking is active
+            return Response({"error": "Booking is not active."},
+            status=status.HTTP_400_BAD_REQUEST)
+        if booking.check_in_date != date.today(): # Verify they are checking in today
+            return Response({"error": "Cannot check in on a different date."},
+            status=status.HTTP_400_BAD_REQUEST)
+        
+        booking.is_active = False
+        booking.room.is_available = False
+        booking.save()
+        booking.room.save()
+
+        return Response({"message": "Check-in successful"})
+    
+    @action(detail=True, methods=['POST'])
+    def check_out(self, request, pk=None):
+        booking = self.get_object()
+
+        if not booking.is_active:  # Check if booking is active
+            return Response({"error": "Booking is not active."},
+            status=status.HTTP_400_BAD_REQUEST)
+        
+        booking.room.is_available = True
+        booking.room.save()
+
+        # Create an invoice
+        create_invoice(booking)
+
+        return Response({"message": "Check-out successful"})
 
 class InvoiceViewSet(viewsets.ModelViewSet):
     queryset = Invoice.objects.all()
