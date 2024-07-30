@@ -3,7 +3,7 @@ from django.db.models import Q
 from rest_framework import status, viewsets
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
-from datetime import date
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 from .models import Booking, Guest, Invoice, Room
 from .serializers import BookingSerializer, GuestSerializer, \
@@ -135,3 +135,28 @@ def search_available_rooms(request):
 
     serializer = RoomSerializer(available_rooms, many=True)
     return Response(serializer.data)
+
+@api_view(['GET'])
+def calculate_revenue(request):
+    # Get start and end dates from query parameters
+    start_date_str = request.query_params.get('start_date')
+    end_date_str = request.query_params.get('end_date')
+
+    # Validate dates
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return Response({'error': 'Invalid date format. Please use YYYY-MM-DD format.'}, 
+                        status=status.HTTP_400_BAD_REQUEST )
+    
+    # Calculate revenue
+    bookings = Booking.objects.filter(
+        check_in_date__lte=end_date,
+        check_out_date__gte=start_date,
+        invoice__is_paid=True, # Ensure only paid bookings are included
+    )
+
+    total_revenue = sum(booking.total_price for booking in bookings)
+
+    return Response({'total_revenue': total_revenue})
